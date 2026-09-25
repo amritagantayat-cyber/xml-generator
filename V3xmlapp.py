@@ -484,7 +484,13 @@ def main():
     with head_l:
         st.title("🧩 XML Job Feed Generator")
     with head_r:
-        st.metric("👥 Users so far", f"{get_visit_count():,}")
+        st.markdown(
+            "<div style='padding-top:0.9rem'>"
+            "<div style='font-size:0.875rem;opacity:0.8'>👥 Users so far</div>"
+            f"<div style='font-size:1.6rem;font-weight:600;line-height:1.3'>{get_visit_count():,}</div>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
     st.caption(
         "Generate a valid `<source>` / `<job>` feed. Choose per-tag CDATA "
         "wrapping in the sidebar."
