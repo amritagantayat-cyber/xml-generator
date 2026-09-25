@@ -18,8 +18,11 @@ Run with:
     streamlit run xmlapp.py
 """
 
+import os
 import re
+import json
 import textwrap
+import urllib.request
 import html as html_lib
 
 import streamlit as st
@@ -394,6 +397,55 @@ def _sidebar_footer():
     )
 
 
+
+# --------------------------------------------------------------------------- #
+# USAGE COUNTER
+# Counts one visit per browser session. Stored in a free hosted counter
+# (abacus) so the number survives app restarts/redeploys; falls back to a
+# local file if that service can't be reached.
+# --------------------------------------------------------------------------- #
+COUNTER_API = "https://abacus.jasoncameron.dev"
+COUNTER_NS = "joveo-xmlfeedgenerator"
+COUNTER_KEY = "visits"
+# Added to the raw count so the display starts at 12 (first new visit -> 12).
+COUNTER_OFFSET = 11
+_LOCAL_COUNTER = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".visit_count")
+
+
+def _remote_counter(action: str):
+    url = f"{COUNTER_API}/{action}/{COUNTER_NS}/{COUNTER_KEY}"
+    try:
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            return int(json.loads(resp.read().decode("utf-8"))["value"])
+    except Exception:
+        return None
+
+
+def _local_counter(increment: bool) -> int:
+    try:
+        with open(_LOCAL_COUNTER) as fh:
+            n = int(fh.read().strip() or 0)
+    except Exception:
+        n = 0
+    if increment:
+        n += 1
+        try:
+            with open(_LOCAL_COUNTER, "w") as fh:
+                fh.write(str(n))
+        except Exception:
+            pass
+    return n
+
+
+def get_visit_count() -> int:
+    """Increment once per session, then reuse the cached value on reruns."""
+    if "visit_count" not in st.session_state:
+        n = _remote_counter("hit")
+        if n is None:
+            n = _local_counter(increment=True)
+        st.session_state.visit_count = n + COUNTER_OFFSET
+    return st.session_state.visit_count
+
 # --------------------------------------------------------------------------- #
 # MAIN APP
 # --------------------------------------------------------------------------- #
@@ -428,7 +480,11 @@ def main():
         _sidebar_footer()
 
     # ---- Header --------------------------------------------------------- #
-    st.title("🧩 XML Job Feed Generator")
+    head_l, head_r = st.columns([4, 1])
+    with head_l:
+        st.title("🧩 XML Job Feed Generator")
+    with head_r:
+        st.metric("👥 Users so far", f"{get_visit_count():,}")
     st.caption(
         "Generate a valid `<source>` / `<job>` feed. Choose per-tag CDATA "
         "wrapping in the sidebar."
