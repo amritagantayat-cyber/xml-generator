@@ -440,9 +440,11 @@ def _local_counter(increment: bool) -> int:
 def get_visit_count() -> int:
     """Increment once per session, then reuse the cached value on reruns."""
     if "visit_count" not in st.session_state:
-        n = _remote_counter("hit")
+        # Keep-awake bot visits (?keepalive=1) read the count without adding to it.
+        is_bot = st.query_params.get("keepalive") == "1"
+        n = _remote_counter("get" if is_bot else "hit")
         if n is None:
-            n = _local_counter(increment=True)
+            n = _local_counter(increment=not is_bot)
         st.session_state.visit_count = n + COUNTER_OFFSET
     return st.session_state.visit_count
 
